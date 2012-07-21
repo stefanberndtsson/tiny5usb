@@ -1,8 +1,18 @@
 #include <avr/wdt.h>
 #include <util/delay.h>
 #include <wiring.h>
+#include "usbkeyboard.h"
 #include "usbdrv.h"
 #include <usbconfig.h>
+#include <softserial.h>
+
+const int hexdata[16] = {KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7,
+                         KEY_8, KEY_9, KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F};
+
+void send_hex(int value) {
+  usbSendKeyStroke(hexdata[(value>>4)&0xf], 0);
+  usbSendKeyStroke(hexdata[value&0xf], 0);
+}
 
 void setup();
 void loop();
@@ -27,6 +37,8 @@ void setup() {
 */
     usbSetup();
   pinMode(4, OUTPUT);
+  ss_setup(3, 0, true);
+  ss_begin(1200);
 }
 
 int state = LOW;
@@ -34,12 +46,22 @@ int state = LOW;
 void loop() {
   wdt_reset();
   usbPoll();
-  if(usbInterruptIsReady())
-    usbSendKeyStroke(20);
+  //  if(usbInterruptIsReady())
+  //    usbSendKeyStroke(20);
+  
   _delay_ms(20);
+  if(ss_available()) {
+    int value = ss_read();
+    send_hex(value);
+    if(value&0x7f > 0x40) {
+      digitalWrite(4, HIGH);
+    }
+    if(value&0x7f < 0x40) {
+      digitalWrite(4, LOW);
+    }
+    //    state = (state == LOW) ? HIGH : LOW;
+  }
   //  digitalWrite(4, LOW);
-  //  digitalWrite(4, state);
-  //  state = (state == LOW) ? HIGH : LOW;
 }
 
 void calibrateOscillator(void)

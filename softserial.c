@@ -155,6 +155,29 @@ void *ss_active_object = 0;
 char ss_receive_buffer[_SS_MAX_RX_BUFF]; 
 volatile uint8_t ss_receive_buffer_tail = 0;
 volatile uint8_t ss_receive_buffer_head = 0;
+static uint16_t _rx_delay_centering;
+static uint16_t _rx_delay_intrabit;
+static uint16_t _rx_delay_stopbit;
+static uint16_t _tx_delay;
+
+static uint16_t _buffer_overflow;
+static uint16_t _inverse_logic;
+
+// static data
+static char _receive_buffer[_SS_MAX_RX_BUFF]; 
+static volatile uint8_t _receive_buffer_tail;
+static volatile uint8_t _receive_buffer_head;
+static void *active_object;
+
+// private static method for timing
+static inline void ss_tunedDelay(uint16_t delay);
+// public only for easy access by interrupt handlers
+static inline void ss_handle_interrupt();
+
+
+void setWriteError(int err) { write_error = err; }
+int ss_isListening() { return 1; }
+int ss_overflow() { int ret = _buffer_overflow; _buffer_overflow = false; return ret; }
 
 //
 // Debugging

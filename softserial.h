@@ -53,20 +53,6 @@ http://arduiniana.org.
   uint8_t _transmitBitMask;
   volatile uint8_t *_transmitPortRegister;
 
-  uint16_t _rx_delay_centering;
-  uint16_t _rx_delay_intrabit;
-  uint16_t _rx_delay_stopbit;
-  uint16_t _tx_delay;
-
-  uint16_t _buffer_overflow;
-  uint16_t _inverse_logic;
-
-  // static data
-  static char _receive_buffer[_SS_MAX_RX_BUFF]; 
-  static volatile uint8_t _receive_buffer_tail;
-  static volatile uint8_t _receive_buffer_head;
-  static void *active_object;
-
   // private methods
   void ss_recv();
   uint8_t ss_rx_pin_read();
@@ -74,17 +60,11 @@ http://arduiniana.org.
   void ss_setTX(uint8_t transmitPin);
   void ss_setRX(uint8_t receivePin);
 
-  // private static method for timing
-  static inline void ss_tunedDelay(uint16_t delay);
-  void setWriteError(int err) { write_error = err; }
-
   // public methods
   void ss_setup(uint8_t receivePin, uint8_t transmitPin, int inverse_logic);
   void ss_begin(long speed);
   int ss_listen();
   void ss_end();
-int ss_isListening() { return 1; }
-  int ss_overflow() { int ret = _buffer_overflow; _buffer_overflow = false; return ret; }
   int ss_peek();
 
   size_t ss_write(uint8_t byte);
@@ -93,9 +73,6 @@ int ss_isListening() { return 1; }
   void ss_flush();
   
 //  using Print::write;
-
-  // public only for easy access by interrupt handlers
-  static inline void ss_handle_interrupt();
 
 
 
