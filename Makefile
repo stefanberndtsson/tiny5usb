@@ -10,7 +10,7 @@ PROGNAME=tinyusb
 FLASHFILE=$(PROGNAME).hex
 DUDEFLASHFLAGS=-Uflash:w:$(FLASHFILE):i
 
-SRCSC=main.c usbdrv.c usbkeyboard.c
+SRCSC=main.c usbdrv.c usbkeyboard.c softserial.c
 SRCSCPP=
 SRCSASM=usbdrvasm.S
 

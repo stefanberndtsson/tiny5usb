@@ -29,12 +29,12 @@ The latest version of this library can always be found at
 http://arduiniana.org.
 */
 
-#ifndef SoftwareSerial_h
-#define SoftwareSerial_h
+#ifndef __SOFTSERIAL_H__
+#define __SOFTSERIAL_H__
 
+#include <wiring.h>
 #include <pins_arduino.h>
 #include <inttypes.h>
-#include <Stream.h>
 
 /******************************************************************************
 * Definitions
@@ -45,9 +45,6 @@ http://arduiniana.org.
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 #endif
 
-class SoftwareSerial : public Stream
-{
-private:
   // per object data
   int write_error;
   uint8_t _receivePin;
@@ -61,55 +58,45 @@ private:
   uint16_t _rx_delay_stopbit;
   uint16_t _tx_delay;
 
-  uint16_t _buffer_overflow:1;
-  uint16_t _inverse_logic:1;
+  uint16_t _buffer_overflow;
+  uint16_t _inverse_logic;
 
   // static data
   static char _receive_buffer[_SS_MAX_RX_BUFF]; 
   static volatile uint8_t _receive_buffer_tail;
   static volatile uint8_t _receive_buffer_head;
-  static SoftwareSerial *active_object;
+  static void *active_object;
 
   // private methods
-  void recv();
-  uint8_t rx_pin_read();
-  void tx_pin_write(uint8_t pin_state);
-  void setTX(uint8_t transmitPin);
-  void setRX(uint8_t receivePin);
+  void ss_recv();
+  uint8_t ss_rx_pin_read();
+  void ss_tx_pin_write(uint8_t pin_state);
+  void ss_setTX(uint8_t transmitPin);
+  void ss_setRX(uint8_t receivePin);
 
   // private static method for timing
-  static inline void tunedDelay(uint16_t delay);
- protected:
-  void setWriteError(int err = 1) { write_error = err; }
-public:
-  // public methods
-  SoftwareSerial(uint8_t receivePin, uint8_t transmitPin, bool inverse_logic = false);
-  ~SoftwareSerial();
-  void begin(long speed);
-  bool listen();
-  void end();
-  bool isListening() { return this == active_object; }
-  bool overflow() { bool ret = _buffer_overflow; _buffer_overflow = false; return ret; }
-  int peek();
+  static inline void ss_tunedDelay(uint16_t delay);
+  void setWriteError(int err) { write_error = err; }
 
-  virtual size_t write(uint8_t byte);
-  virtual int read();
-  virtual int available();
-  virtual void flush();
+  // public methods
+  void ss_setup(uint8_t receivePin, uint8_t transmitPin, int inverse_logic);
+  void ss_begin(long speed);
+  int ss_listen();
+  void ss_end();
+int ss_isListening() { return 1; }
+  int ss_overflow() { int ret = _buffer_overflow; _buffer_overflow = false; return ret; }
+  int ss_peek();
+
+  size_t ss_write(uint8_t byte);
+  int ss_read();
+  int ss_available();
+  void ss_flush();
   
-  using Print::write;
+//  using Print::write;
 
   // public only for easy access by interrupt handlers
-  static inline void handle_interrupt();
-};
+  static inline void ss_handle_interrupt();
 
-// Arduino 0012 workaround
-#undef int
-#undef char
-#undef long
-#undef byte
-#undef float
-#undef abs
-#undef round
+
 
 #endif

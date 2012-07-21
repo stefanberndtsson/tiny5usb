@@ -35,13 +35,14 @@ http://arduiniana.org.
 #define _DEBUG 0
 #define _DEBUG_PIN1 11
 #define _DEBUG_PIN2 13
+#define NULL 0
 // 
 // Includes
 // 
+#include <wiring.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include "Arduino.h"
-#include "MySoftSerial.h"
+#include "softserial.h"
 //
 // Lookup table
 //
@@ -150,17 +151,17 @@ const int XMIT_START_ADJUSTMENT = 6;
 //
 // Statics
 //
-SoftwareSerial *SoftwareSerial::active_object = 0;
-char SoftwareSerial::_receive_buffer[_SS_MAX_RX_BUFF]; 
-volatile uint8_t SoftwareSerial::_receive_buffer_tail = 0;
-volatile uint8_t SoftwareSerial::_receive_buffer_head = 0;
+void *ss_active_object = 0;
+char ss_receive_buffer[_SS_MAX_RX_BUFF]; 
+volatile uint8_t ss_receive_buffer_tail = 0;
+volatile uint8_t ss_receive_buffer_head = 0;
 
 //
 // Debugging
 //
 // This function generates a brief pulse
 // for debugging or measuring on an oscilloscope.
-inline void DebugPulse(uint8_t pin, uint8_t count)
+inline void ss_DebugPulse(uint8_t pin, uint8_t count)
 {
 #if _DEBUG
   volatile uint8_t *pport = portOutputRegister(digitalPinToPort(pin));
@@ -179,7 +180,7 @@ inline void DebugPulse(uint8_t pin, uint8_t count)
 //
 
 /* static */ 
-inline void SoftwareSerial::tunedDelay(uint16_t delay) { 
+inline void ss_tunedDelay(uint16_t delay) { 
   uint8_t tmp=0;
 
   asm volatile("sbiw    %0, 0x01 \n\t"
@@ -194,8 +195,10 @@ inline void SoftwareSerial::tunedDelay(uint16_t delay) {
 
 // This function sets the current object as the "listening"
 // one and returns true if it replaces another 
-bool SoftwareSerial::listen()
+int ss_listen()
 {
+  return true;
+  /*
   if (active_object != this)
   {
     _buffer_overflow = false;
@@ -208,12 +211,13 @@ bool SoftwareSerial::listen()
   }
 
   return false;
+  */
 }
 
 //
 // The receive routine called by the interrupt handler
 //
-void SoftwareSerial::recv()
+void ss_recv()
 {
 
 #if GCC_VERSION < 40302
@@ -236,27 +240,28 @@ void SoftwareSerial::recv()
 
   // If RX line is high, then we don't see any start bit
   // so interrupt is probably not for us
-  if (_inverse_logic ? rx_pin_read() : !rx_pin_read())
+  if (_inverse_logic ? ss_rx_pin_read() : !ss_rx_pin_read())
   {
+    uint8_t i;
     // Wait approximately 1/2 of a bit width to "center" the sample
-    tunedDelay(_rx_delay_centering);
-    DebugPulse(_DEBUG_PIN2, 1);
+    ss_tunedDelay(_rx_delay_centering);
+    //    DebugPulse(_DEBUG_PIN2, 1);
 
     // Read each of the 8 bits
-    for (uint8_t i=0x1; i; i <<= 1)
+    for (i=0x1; i; i <<= 1)
     {
-      tunedDelay(_rx_delay_intrabit);
-      DebugPulse(_DEBUG_PIN2, 1);
+      ss_tunedDelay(_rx_delay_intrabit);
+      //      DebugPulse(_DEBUG_PIN2, 1);
       uint8_t noti = ~i;
-      if (rx_pin_read())
+      if (ss_rx_pin_read())
         d |= i;
       else // else clause added to ensure function timing is ~balanced
         d &= noti;
     }
 
     // skip the stop bit
-    tunedDelay(_rx_delay_stopbit);
-    DebugPulse(_DEBUG_PIN2, 1);
+    ss_tunedDelay(_rx_delay_stopbit);
+    //    DebugPulse(_DEBUG_PIN2, 1);
 
     if (_inverse_logic)
       d = ~d;
@@ -293,7 +298,7 @@ void SoftwareSerial::recv()
 #endif
 }
 
-void SoftwareSerial::tx_pin_write(uint8_t pin_state)
+void ss_tx_pin_write(uint8_t pin_state)
 {
   if (pin_state == LOW)
     *_transmitPortRegister &= ~_transmitBitMask;
@@ -301,7 +306,7 @@ void SoftwareSerial::tx_pin_write(uint8_t pin_state)
     *_transmitPortRegister |= _transmitBitMask;
 }
 
-uint8_t SoftwareSerial::rx_pin_read()
+uint8_t ss_rx_pin_read()
 {
   return *_receivePortRegister & _receiveBitMask;
 }
@@ -311,66 +316,55 @@ uint8_t SoftwareSerial::rx_pin_read()
 //
 
 /* static */
-inline void SoftwareSerial::handle_interrupt()
+inline void ss_handle_interrupt()
 {
-  if (active_object)
-  {
-    active_object->recv();
-  }
+  ss_recv();
 }
 
 #if defined(PCINT0_vect)
 ISR(PCINT0_vect)
 {
-  SoftwareSerial::handle_interrupt();
+  ss_handle_interrupt();
 }
 #endif
 
 #if defined(PCINT1_vect)
 ISR(PCINT1_vect)
 {
-  SoftwareSerial::handle_interrupt();
+  ss_handle_interrupt();
 }
 #endif
 
 #if defined(PCINT2_vect)
 ISR(PCINT2_vect)
 {
-  SoftwareSerial::handle_interrupt();
+  ss_handle_interrupt();
 }
 #endif
 
 #if defined(PCINT3_vect)
 ISR(PCINT3_vect)
 {
-  SoftwareSerial::handle_interrupt();
+  ss_handle_interrupt();
 }
 #endif
 
 //
 // Constructor
 //
-SoftwareSerial::SoftwareSerial(uint8_t receivePin, uint8_t transmitPin, bool inverse_logic /* = false */) : 
-  _rx_delay_centering(0),
-  _rx_delay_intrabit(0),
-  _rx_delay_stopbit(0),
-  _tx_delay(0),
-  _buffer_overflow(false),
-  _inverse_logic(inverse_logic)
+void ss_setup(uint8_t receivePin, uint8_t transmitPin, int inverse_logic /* = false */)
 {
-  setTX(transmitPin);
-  setRX(receivePin);
+  _rx_delay_centering = 0;
+  _rx_delay_intrabit = 0;
+  _rx_delay_stopbit = 0;
+  _tx_delay = 0;
+  _buffer_overflow = false;
+  _inverse_logic = inverse_logic;
+  ss_setTX(transmitPin);
+  ss_setRX(receivePin);
 }
 
-//
-// Destructor
-//
-SoftwareSerial::~SoftwareSerial()
-{
-  end();
-}
-
-void SoftwareSerial::setTX(uint8_t tx)
+void ss_setTX(uint8_t tx)
 {
   pinMode(tx, OUTPUT);
   digitalWrite(tx, HIGH);
@@ -379,7 +373,7 @@ void SoftwareSerial::setTX(uint8_t tx)
   _transmitPortRegister = portOutputRegister(port);
 }
 
-void SoftwareSerial::setRX(uint8_t rx)
+void ss_setRX(uint8_t rx)
 {
   pinMode(rx, INPUT);
   if (!_inverse_logic)
@@ -394,11 +388,12 @@ void SoftwareSerial::setRX(uint8_t rx)
 // Public methods
 //
 
-void SoftwareSerial::begin(long speed)
+void ss_begin(long speed)
 {
+  unsigned int i;
   _rx_delay_centering = _rx_delay_intrabit = _rx_delay_stopbit = _tx_delay = 0;
 
-  for (unsigned i=0; i<sizeof(table)/sizeof(table[0]); ++i)
+  for (i=0; i<sizeof(table)/sizeof(table[0]); ++i)
   {
     long baud = pgm_read_dword(&table[i].baud);
     if (baud == speed)
@@ -419,7 +414,7 @@ void SoftwareSerial::begin(long speed)
       *digitalPinToPCICR(_receivePin) |= _BV(digitalPinToPCICRbit(_receivePin));
       *digitalPinToPCMSK(_receivePin) |= _BV(digitalPinToPCMSKbit(_receivePin));
     }
-    tunedDelay(_tx_delay); // if we were low this establishes the end
+    ss_tunedDelay(_tx_delay); // if we were low this establishes the end
   }
 
 #if _DEBUG
@@ -427,10 +422,10 @@ void SoftwareSerial::begin(long speed)
   pinMode(_DEBUG_PIN2, OUTPUT);
 #endif
 
-  listen();
+  ss_listen();
 }
 
-void SoftwareSerial::end()
+void ss_end()
 {
   if (digitalPinToPCMSK(_receivePin))
     *digitalPinToPCMSK(_receivePin) &= ~_BV(digitalPinToPCMSKbit(_receivePin));
@@ -438,9 +433,9 @@ void SoftwareSerial::end()
 
 
 // Read data from buffer
-int SoftwareSerial::read()
+int ss_read()
 {
-  if (!isListening())
+  if (!ss_isListening())
     return -1;
 
   // Empty buffer?
@@ -453,18 +448,18 @@ int SoftwareSerial::read()
   return d;
 }
 
-int SoftwareSerial::available()
+int ss_available()
 {
-  if (!isListening())
+  if (!ss_isListening())
     return 0;
 
   return (_receive_buffer_tail + _SS_MAX_RX_BUFF - _receive_buffer_head) % _SS_MAX_RX_BUFF;
 }
 
-size_t SoftwareSerial::write(uint8_t b)
+size_t ss_write(uint8_t b)
 {
   if (_tx_delay == 0) {
-    setWriteError();
+    setWriteError(1);
     return 0;
   }
 
@@ -472,48 +467,50 @@ size_t SoftwareSerial::write(uint8_t b)
   cli();  // turn off interrupts for a clean txmit
 
   // Write the start bit
-  tx_pin_write(_inverse_logic ? HIGH : LOW);
-  tunedDelay(_tx_delay + XMIT_START_ADJUSTMENT);
+  ss_tx_pin_write(_inverse_logic ? HIGH : LOW);
+  ss_tunedDelay(_tx_delay + XMIT_START_ADJUSTMENT);
 
   // Write each of the 8 bits
   if (_inverse_logic)
   {
-    for (byte mask = 0x01; mask; mask <<= 1)
+    byte mask;
+    for (mask = 0x01; mask; mask <<= 1)
     {
       if (b & mask) // choose bit
-        tx_pin_write(LOW); // send 1
+        ss_tx_pin_write(LOW); // send 1
       else
-        tx_pin_write(HIGH); // send 0
+        ss_tx_pin_write(HIGH); // send 0
     
-      tunedDelay(_tx_delay);
+      ss_tunedDelay(_tx_delay);
     }
 
-    tx_pin_write(LOW); // restore pin to natural state
+    ss_tx_pin_write(LOW); // restore pin to natural state
   }
   else
   {
-    for (byte mask = 0x01; mask; mask <<= 1)
+    byte mask;
+    for (mask = 0x01; mask; mask <<= 1)
     {
       if (b & mask) // choose bit
-        tx_pin_write(HIGH); // send 1
+        ss_tx_pin_write(HIGH); // send 1
       else
-        tx_pin_write(LOW); // send 0
+        ss_tx_pin_write(LOW); // send 0
     
-      tunedDelay(_tx_delay);
+      ss_tunedDelay(_tx_delay);
     }
 
-    tx_pin_write(HIGH); // restore pin to natural state
+    ss_tx_pin_write(HIGH); // restore pin to natural state
   }
 
   SREG = oldSREG; // turn interrupts back on
-  tunedDelay(_tx_delay);
+  ss_tunedDelay(_tx_delay);
   
   return 1;
 }
 
-void SoftwareSerial::flush()
+void ss_flush()
 {
-  if (!isListening())
+  if (!ss_isListening())
     return;
 
   uint8_t oldSREG = SREG;
@@ -522,9 +519,9 @@ void SoftwareSerial::flush()
   SREG = oldSREG;
 }
 
-int SoftwareSerial::peek()
+int ss_peek()
 {
-  if (!isListening())
+  if (!ss_isListening())
     return -1;
 
   // Empty buffer?
