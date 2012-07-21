@@ -73,6 +73,9 @@
 
 #define KEY_ARROW_LEFT 0x50
 
+#define KEYDOWN 0
+#define KEYUP 1
+
 extern void usbSetup ();
 extern void usbClearKeys(byte modifiers);
 extern void usbSendModifiers(byte modifiers);
