@@ -9,6 +9,7 @@ DUDEBASEFLAGS=-C$(AVRDUDE).conf -v -p$(MODEL) -c$(STK) -P$(PORT) -b$(SPEED)
 PROGNAME=tinyusb
 FLASHFILE=$(PROGNAME).hex
 DUDEFLASHFLAGS=-Uflash:w:$(FLASHFILE):i
+DUDEFUSEFLAGS=-Uefuse:w:0xFF:m -Uhfuse:w:0xD4:m -Ulfuse:w:0xC1:m
 
 SRCSC=main.c usbdrv.c usbkeyboard.c softserial.c
 SRCSCPP=
@@ -46,6 +47,9 @@ $(PROGNAME).elf: $(OBJS)
 
 flash:
 	$(AVRDUDE) $(DUDEBASEFLAGS) $(DUDEFLASHFLAGS)
+
+fuse:
+	$(AVRDUDE) $(DUDEBASEFLAGS) $(DUDEFUSEFLAGS)
 
 verify:
 	$(AVRDUDE) $(DUDEBASEFLAGS)
