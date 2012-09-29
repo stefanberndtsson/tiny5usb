@@ -45,10 +45,11 @@ void setup() {
 }
 
 void loop() {
-  wdt_reset();
-  usbPoll();
-  
-  if(ss_available() > 0) {
+  if(ss_available() <= 0) {
+    wdt_reset();
+    usbPoll();
+  } else {
+    wdt_reset();
     int value = ss_read(); 
 
     keystate = (value > 0x7f) ? KEYUP : KEYDOWN;
