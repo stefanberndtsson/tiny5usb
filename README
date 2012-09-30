@@ -1,0 +1,45 @@
+Sun Type 5 to USB adapter
+-------------------------
+
+ATtiny85 with a hacked up V-USB and SoftSerial from the Arduino core, hacked down to a
+non-C++ version.
+
+ATtiny85 pins in use:
+
+1: RESET (NC)
+2: From Sun-keyboard (MiniDin8 pin 6)
+3: To Sun-keyboard (MiniDin8 pin 5)
+4: GND (USB GND and MiniDin8 pin 1 and 2)
+5: NC
+6: To USB, D- (via resistors and zeners)
+7: To USB, D+ (via resistors and zeners)
+8: VCC (USB VCC and MiniDin8 pin 3 and 8)
+
+
+
+USB-pins
+--------
+
+             -[2.2k]-VCC
+             |
+Pin6 --[68]--+---------------USB-connector (D-)
+             |
+             _
+             ^
+            /_\ 3.3V zener
+             |
+             |
+            GND
+
+
+Pin7 --[68]--+---------------USB-connector (D+)
+             |
+             _
+             ^
+            /_\ 3.3V zener
+             |
+             |
+            GND
+
+
+
